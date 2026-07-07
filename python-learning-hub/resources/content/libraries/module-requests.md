@@ -163,5 +163,84 @@ with requests.get(url, stream=True) as response:
 print("Large file downloaded successfully without crashing RAM!")
 ```
 
+### ৮. প্রো-লেভেল এন্টি-স্ক্র্যাপিং বাইপাস (Status Codes Solutions)
+আপনি যখন কোনো রিয়েল-লাইফ ওয়েবসাইট (যেমন: Amazon, LinkedIn বা Cloudflare দেওয়া সাইট) স্ক্র্যাপ করতে যাবেন, তখন সার্ভার আপনার পাইথন স্ক্রিপ্টকে চিনে ফেলবে এবং বিভিন্ন এরর বা **Status Code** দিবে। এগুলোকে হেডার (Headers) দিয়ে কীভাবে বাইপাস করবেন তার বিস্তারিত গাইড:
+
+#### ১. 403 Forbidden (সার্ভার আপনাকে ব্লক করেছে)
+সবচেয়ে বেশি ফেস করা এরর! এর মানে হলো সার্ভার বুঝতে পেরেছে আপনি মানুষ নন, একটি বট।
+**কীভাবে বাইপাস করবেন?**
+ব্রাউজার যেসব হেডার পাঠায়, আপনাকেও হুবহু সেই হেডারগুলো পাঠাতে হবে। বিশেষ করে `User-Agent`, `Accept-Language` এবং `Referer`।
+
+```python
+headers = {
+    # ১. ফেক ব্রাউজার ইউজার-এজেন্ট (সবচেয়ে গুরুত্বপূর্ণ)
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    
+    # ২. আপনি কোন ভাষা বোঝেন (বটরা সাধারণত এটি পাঠায় না)
+    "Accept-Language": "en-US,en;q=0.9,bn;q=0.8",
+    
+    # ৩. আপনি কোন সাইট থেকে এই সাইটে এসেছেন (সার্ভার ভাবে আপনি গুগল সার্চ করে এসেছেন!)
+    "Referer": "https://www.google.com/",
+    
+    # ৪. মডার্ন ব্রাউজার সিকিউরিটি হেডার (Cloudflare বা ফায়ারওয়াল বাইপাস করার জন্য)
+    "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+    "sec-fetch-dest": "document",
+    "sec-fetch-mode": "navigate",
+    "sec-fetch-site": "cross-site",
+    "Upgrade-Insecure-Requests": "1"
+}
+response = requests.get("https://amazon.com", headers=headers)
+```
+
+#### ২. 406 Not Acceptable (ভুল ডেটা ফরমেট)
+সার্ভার আপনার রিকোয়েস্ট পেয়েছে কিন্তু আপনি যেই ডেটা ফরমেট চাইছেন, সার্ভার তা দিতে রাজি না।
+**কীভাবে বাইপাস করবেন?**
+আপনার `Accept` হেডারে সার্ভারকে বলে দিতে হবে যে আপনি HTML, JSON বা Image যেকোনো ডেটাই রিসিভ করতে প্রস্তুত।
+```python
+headers = {
+    "User-Agent": "Mozilla/5.0...",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
+}
+```
+
+#### ৩. 429 Too Many Requests (আপনি অনেক স্প্যাম করছেন)
+আপনি একটি ওয়েবসাইটে সেকেন্ডে ১০-২০টি রিকোয়েস্ট পাঠালে সার্ভার আপনাকে কিছুক্ষণের জন্য ব্যান করে দিবে।
+**কীভাবে বাইপাস করবেন?**
+এক্ষেত্রে হেডার দিয়ে কাজ হবে না। আপনাকে পাইথনের `time.sleep()` ব্যবহার করে রিকোয়েস্টের মাঝে গ্যাপ দিতে হবে এবং সার্ভারের দেওয়া `Retry-After` হেডারটি পড়তে হবে।
+```python
+import time
+import requests
+
+response = requests.get("https://api.example.com/data")
+
+if response.status_code == 429:
+    # সার্ভার যদি বলে দেয় কত সেকেন্ড পর আবার ট্রাই করতে হবে
+    if "Retry-After" in response.headers:
+        wait_time = int(response.headers["Retry-After"])
+        print(f"Banned! Waiting for {wait_time} seconds...")
+        time.sleep(wait_time)
+    else:
+        # না বললে নিজের মতো ৫-১০ সেকেন্ড গ্যাপ দিন
+        time.sleep(10)
+```
+
+#### ৪. 401 Unauthorized (লগিন ছাড়া অ্যাক্সেস নিষেধ)
+এই এররটি আসে যখন আপনি কোনো API বা সাইটে লগিন ছাড়া বা ভুল টোকেন (Token) দিয়ে ঢোকার চেষ্টা করেন।
+**কীভাবে বাইপাস করবেন?**
+ব্রাউজারের ইনস্পেক্ট (Inspect) টুল থেকে আপনার লগিন সেশনের `Cookie` বা `Authorization` টোকেনটি কপি করে হেডারে বসিয়ে দিন।
+```python
+headers = {
+    "User-Agent": "Mozilla/5.0...",
+    "Authorization": "Bearer YOUR_SECRET_API_TOKEN_HERE",
+    
+    # অথবা কুকি ব্যবহার করতে পারেন
+    "Cookie": "session_id=1234567890abcdef; user_prefs=dark_mode"
+}
+```
+
+*(বিঃদ্রঃ যদি কোনো সাইট অনেক হার্ডকোর সিকিউরিটি বা বট-প্রোটেকশন যেমন Cloudflare Turnstile, reCAPTCHA বা Datadome ব্যবহার করে, তবে শুধু `requests` মডিউলের হেডার দিয়ে তা বাইপাস করা প্রায় অসম্ভব। তখন আপনাকে `Selenium` বা `Playwright` এর মতো অটোমেশন টুল ব্যবহার করতে হবে।)*
+
+---
+
 ### সারসংক্ষেপ (Conclusion)
 স্ক্র্যাপিং (Scraping), বটিং (Botting), অটোমেশন বা API টেস্টিং—পাইথনে ইন্টারনেটের যেকোনো কাজের মূল ভিত্তি হলো এই **`requests`** লাইব্রেরি। এর `Session` অবজেক্টের ব্যবহার এবং `headers` ম্যানিপুলেশনের টেকনিক জানা একজন হ্যাকার বা স্ক্র্যাপারের জন্য সবচেয়ে বড় শক্তি!

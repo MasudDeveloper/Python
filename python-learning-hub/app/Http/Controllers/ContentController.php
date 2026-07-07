@@ -56,7 +56,7 @@ class ContentController extends Controller
         $libraryCategories = [
             'Web Development' => ['module-django', 'module-fastapi', 'module-flask'],
             'Data Science' => ['module-pandas', 'module-numpy', 'module-matplotlib'],
-            'Web Scraping & API' => ['module-requests', 'module-beautifulsoup4', 'module-selenium'],
+            'Web Scraping & API' => ['module-requests', 'module-beautifulsoup4', 'module-selenium', 'module-playwright', 'module-scrapy', 'module-antibot'],
             'Machine Learning & AI' => ['module-scikit-learn', 'module-tensorflow'],
             'Image Processing & Others' => ['module-opencv', 'module-pillow'],
             'File & System' => ['module-os', 'module-sys', 'module-shutil', 'module-pathlib'],
